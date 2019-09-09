@@ -75,6 +75,11 @@ target_include_directories(ginkgo_cuda
     SYSTEM PRIVATE ${CUDA_INCLUDE_DIRS})
 target_link_libraries(ginkgo_cuda PRIVATE ${CUDA_RUNTIME_LIBS} ${CUBLAS} ${CUSPARSE})
 
+if (GINKGO_HAVE_METIS)
+  target_link_libraries(ginkgo_cuda PRIVATE METIS::METIS)
+  target_include_directories(ginkgo_cuda PRIVATE ${METIS_INCLUDE_DIR})
+endif()
+
 cas_target_cuda_architectures(ginkgo_cuda
     ARCHITECTURES ${GINKGO_CUDA_ARCHITECTURES}
     UNSUPPORTED "20" "21")
