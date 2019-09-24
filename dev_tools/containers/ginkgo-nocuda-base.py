@@ -21,6 +21,7 @@ import os
 
 Stage0.baseimage('ubuntu:18.04')
 
+add_metis = USERARG.get('metis', 'False')
 
 # Setup extra tools
 Stage0 += python()
@@ -28,6 +29,8 @@ Stage0 += cmake(eula=True)
 Stage0 += apt_get(ospackages=['build-essential', 'git', 'openssh-client', 'doxygen', 'curl', 'valgrind'])
 Stage0 += apt_get(ospackages=['jq', 'graphviz', 'ghostscript', 'texlive', 'texlive-latex-extra'])
 Stage0 += apt_get(ospackages=['texlive-science', 'texlive-fonts-extra', 'texlive-publishers'])
+if os.path.isdir('metis/') and add_metis == 'True':
+    Stage0 += apt_get(ospackages=['libmetis-dev'])
 Stage0 += apt_get(ospackages=['clang-tidy', 'iwyu'])
 Stage0 += apt_get(ospackages=['hwloc', 'libhwloc-dev', 'pkg-config'])
 
