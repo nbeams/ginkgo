@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "core/matrix/sparsity_csr_kernels.hpp"
 #include "core/preconditioner/jacobi_kernels.hpp"
 #include "core/reorder/metis_fill_reduce_kernels.hpp"
+#include "core/reorder/rcm_kernels.hpp"
 #include "core/solver/bicgstab_kernels.hpp"
 #include "core/solver/cg_kernels.hpp"
 #include "core/solver/cgs_kernels.hpp"
@@ -764,6 +765,19 @@ GKO_INSTANTIATE_FOR_EACH_VALUE_AND_METIS_INDEX_TYPE(
 
 
 }  // namespace metis_fill_reduce
+
+
+namespace rcm {
+
+
+template <typename ValueType, typename IndexType>
+GKO_DECLARE_RCM_GET_PERMUTATION_KERNEL(ValueType, IndexType)
+GKO_NOT_COMPILED(GKO_HOOK_MODULE);
+GKO_INSTANTIATE_FOR_EACH_VALUE_AND_INDEX_TYPE(
+    GKO_DECLARE_RCM_GET_PERMUTATION_KERNEL);
+
+
+}  // namespace rcm
 
 
 namespace set_all_statuses {
