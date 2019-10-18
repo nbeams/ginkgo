@@ -58,12 +58,22 @@ namespace kernels {
         std::shared_ptr<const DefaultExecutor> exec, size_type num_vertices, \
         std::shared_ptr<matrix::SparsityCsr<ValueType, IndexType>>           \
             adjacency_matrix,                                                \
-        std::shared_ptr<Array<IndexType>> vertex_weights,                    \
+        std::shared_ptr<Array<IndexType>> node_degrees,                      \
         std::shared_ptr<matrix::Permutation<IndexType>> permutation_mat,     \
         std::shared_ptr<matrix::Permutation<IndexType>> inv_permutation_mat)
 
-#define GKO_DECLARE_ALL_AS_TEMPLATES                  \
-    template <typename ValueType, typename IndexType> \
+
+#define GKO_DECLARE_RCM_GET_DEGREE_OF_NODES_KERNEL(ValueType, IndexType) \
+    void get_degree_of_nodes(                                            \
+        std::shared_ptr<const DefaultExecutor> exec,                     \
+        std::shared_ptr<matrix::SparsityCsr<ValueType, IndexType>>       \
+            adjacency_matrix,                                            \
+        std::shared_ptr<gko::Array<IndexType>> node_degrees)
+
+#define GKO_DECLARE_ALL_AS_TEMPLATES                                  \
+    template <typename ValueType, typename IndexType>                 \
+    GKO_DECLARE_RCM_GET_DEGREE_OF_NODES_KERNEL(ValueType, IndexType); \
+    template <typename ValueType, typename IndexType>                 \
     GKO_DECLARE_RCM_GET_PERMUTATION_KERNEL(ValueType, IndexType)
 
 

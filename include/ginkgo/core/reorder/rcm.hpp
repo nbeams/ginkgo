@@ -125,14 +125,6 @@ public:
          * constructed along with the normal permutation matrix.
          */
         bool GKO_FACTORY_PARAMETER(construct_inverse_permutation, false);
-
-        /**
-         * The weights associated with the vertices of the adjacency. Within
-         * METIS, this is either a nullptr or it **has** to be an array of
-         * non-zeros. Any array with equal non-zero weights is equivalent to
-         * when a nullptr is passed.
-         */
-        Array<IndexType> GKO_FACTORY_PARAMETER(vertex_weights, nullptr);
     };
     GKO_ENABLE_REORDERING_BASE_FACTORY(Rcm, parameters, Factory);
     GKO_ENABLE_BUILD_METHOD(Factory);
@@ -166,13 +158,8 @@ protected:
             // the diagonal elements and outputs an adjacency matrix.
             adjacency_matrix_ = tmp->to_adjacency_matrix();
         }
-        if (vertex_weights_ != nullptr) {
-            vertex_weights_ =
-                std::make_shared<Array<IndexType>>(parameters_.vertex_weights);
-        } else {
-            vertex_weights_ =
-                std::shared_ptr<Array<IndexType>>(new Array<IndexType>(exec));
-        }
+        node_degrees_ = std::shared_ptr<Array<IndexType>>(
+            new Array<IndexType>(exec, adjacency_matrix_->get_size()[0]));
         permutation_ =
             PermutationMatrix::create(exec, adjacency_matrix_->get_size());
         inv_permutation_ =
@@ -183,7 +170,7 @@ protected:
 
 private:
     std::shared_ptr<SparsityMatrix> adjacency_matrix_{};
-    std::shared_ptr<Array<IndexType>> vertex_weights_{};
+    std::shared_ptr<Array<IndexType>> node_degrees_{};
     std::shared_ptr<PermutationMatrix> permutation_{};
     std::shared_ptr<PermutationMatrix> inv_permutation_{};
 };

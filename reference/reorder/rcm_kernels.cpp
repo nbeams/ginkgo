@@ -34,10 +34,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "core/reorder/rcm_kernels.hpp"
 
 
+#include <bits/stdc++.h>
 #include <algorithm>
+#include <iterator>
 #include <memory>
+#include <queue>
+#include <utility>
 #include <vector>
-
 
 #include <ginkgo/config.hpp>
 #include <ginkgo/core/base/array.hpp>
@@ -62,19 +65,117 @@ namespace rcm {
 
 
 template <typename ValueType, typename IndexType>
+void get_degree_of_nodes(
+    std::shared_ptr<const ReferenceExecutor> exec,
+    std::shared_ptr<matrix::SparsityCsr<ValueType, IndexType>> adjacency_matrix,
+    std::shared_ptr<gko::Array<IndexType>> node_degrees)
+{
+    auto num_rows = adjacency_matrix->get_size()[0];
+    auto adj_ptrs = adjacency_matrix->get_row_ptrs();
+    auto node_deg = node_degrees->get_data();
+
+    for (auto i = 0; i < num_rows; ++i) {
+        node_deg[i] = adj_ptrs[i + 1] - adj_ptrs[i];
+    }
+}
+
+GKO_INSTANTIATE_FOR_EACH_VALUE_AND_INDEX_TYPE(
+    GKO_DECLARE_RCM_GET_DEGREE_OF_NODES_KERNEL);
+
+
+template <typename IndexType>
+IndexType findIndex(std::vector<std::pair<IndexType, IndexType>> &a,
+                    IndexType x)
+{
+    for (auto i = 0; i < a.size(); i++)
+        if (a[i].first == x) return i;
+    return -1;
+}
+
+
+// template <typename IndexType>
+// bool compareDegree(int i, int j)
+// {
+//   return ::globalDegree[i] - ::globalDegree[j];
+// }
+
+
+template <typename ValueType, typename IndexType>
 void get_permutation(
     std::shared_ptr<const ReferenceExecutor> exec, size_type num_vertices,
     std::shared_ptr<matrix::SparsityCsr<ValueType, IndexType>> adjacency_matrix,
-    std::shared_ptr<Array<IndexType>> vertex_weights,
+    std::shared_ptr<Array<IndexType>> node_degrees,
     std::shared_ptr<matrix::Permutation<IndexType>> permutation_mat,
     std::shared_ptr<matrix::Permutation<IndexType>> inv_permutation_mat)
 {
     IndexType num_vtxs = static_cast<IndexType>(num_vertices);
     auto adj_ptrs = adjacency_matrix->get_row_ptrs();
     auto adj_idxs = adjacency_matrix->get_col_idxs();
-    auto vtx_weights = vertex_weights->get_data();
+    auto node_deg = node_degrees->get_data();
     auto permutation_arr = permutation_mat->get_permutation();
     auto inv_permutation_arr = inv_permutation_mat->get_permutation();
+
+    std::queue<IndexType> q;
+    std::vector<IndexType> r;
+    std::vector<std::pair<IndexType, IndexType>> not_visited;
+
+    std::cout << " Here " << __LINE__ << std::endl;
+    for (auto i = 0; i < num_vtxs; ++i) {
+        not_visited.push_back(std::make_pair(i, node_deg[i]));
+    }
+
+    std::cout << " Here " << __LINE__ << std::endl;
+    while (not_visited.size()) {
+        IndexType minNodeIndex = 0;
+
+        for (auto i = 0; i < not_visited.size(); i++) {
+            if (not_visited[i].second < not_visited[minNodeIndex].second) {
+                minNodeIndex = i;
+            }
+        }
+        q.push(not_visited[minNodeIndex].first);
+
+        not_visited.erase(not_visited.begin() +
+                          findIndex(not_visited, not_visited[q.front()].first));
+
+        std::cout << " Here " << __LINE__ << " q size " << q.size()
+                  << std::endl;
+        // Simple BFS
+        while (!q.empty()) {
+            std::vector<IndexType> toSort;
+
+            for (IndexType i = 0; i < num_vtxs; i++) {
+                if (i != q.front() &&
+                    ((q.front() * num_vtxs + i) == (adj_ptrs[i] + i)) &&
+                    findIndex(not_visited, i) != -1) {
+                    toSort.push_back(i);
+                    not_visited.erase(not_visited.begin() +
+                                      findIndex(not_visited, i));
+                }
+            }
+
+            std::sort(toSort.begin(), toSort.end(), [&node_deg](int i, int j) {
+                return node_deg[j] - node_deg[i];
+            });
+
+            for (auto i = 0; i < toSort.size(); i++) q.push(toSort[i]);
+
+            r.push_back(q.front());
+            q.pop();
+        }
+    }
+
+    std::cout << " Here " << __LINE__ << " r size " << r.size() << std::endl;
+    for (auto i = 0; i < r.size(); ++i) {
+        std::cout << " r at " << i << " : " << r[i] << "\n";
+        permutation_arr[i] = r[i];
+    }
+    std::cout << " ] r " << std::endl;
+    // std::vector<IndexType> tmp(num_vertices, 0);
+    // std::iota(tmp.begin(), tmp.end(), 0);
+    // for (auto i = 0; i < num_vertices; ++i) {
+    //   permutation_mat->get_permutation()[i] = tmp[i];
+    // }
 }
 
 GKO_INSTANTIATE_FOR_EACH_VALUE_AND_INDEX_TYPE(

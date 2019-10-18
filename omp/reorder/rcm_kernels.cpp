@@ -60,17 +60,32 @@ namespace rcm {
 
 
 template <typename ValueType, typename IndexType>
+void get_degree_of_nodes(
+    std::shared_ptr<const OmpExecutor> exec,
+    std::shared_ptr<matrix::SparsityCsr<ValueType, IndexType>> adjacency_matrix,
+    std::shared_ptr<gko::Array<IndexType>> node_degrees)
+{
+    auto adj_ptrs = adjacency_matrix->get_row_ptrs();
+    auto adj_idxs = adjacency_matrix->get_col_idxs();
+    auto node_deg = node_degrees->get_data();
+}
+
+GKO_INSTANTIATE_FOR_EACH_VALUE_AND_INDEX_TYPE(
+    GKO_DECLARE_RCM_GET_DEGREE_OF_NODES_KERNEL);
+
+
+template <typename ValueType, typename IndexType>
 void get_permutation(
     std::shared_ptr<const OmpExecutor> exec, size_type num_vertices,
     std::shared_ptr<matrix::SparsityCsr<ValueType, IndexType>> adjacency_matrix,
-    std::shared_ptr<Array<IndexType>> vertex_weights,
+    std::shared_ptr<Array<IndexType>> node_degrees,
     std::shared_ptr<matrix::Permutation<IndexType>> permutation_mat,
     std::shared_ptr<matrix::Permutation<IndexType>> inv_permutation_mat)
 {
     IndexType num_vtxs = static_cast<IndexType>(num_vertices);
     auto adj_ptrs = adjacency_matrix->get_row_ptrs();
     auto adj_idxs = adjacency_matrix->get_col_idxs();
-    auto vtx_weights = vertex_weights->get_data();
+    auto node_deg = node_degrees->get_data();
     auto permutation_arr = permutation_mat->get_permutation();
     auto inv_permutation_arr = inv_permutation_mat->get_permutation();
 }

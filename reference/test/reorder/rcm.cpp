@@ -48,10 +48,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ginkgo/core/matrix/sparsity_csr.hpp>
 
 
+#include <iostream>
 #include "core/test/utils.hpp"
 #include "core/test/utils/assertions.hpp"
 #include "matrices/config.hpp"
-
 
 namespace {
 
@@ -65,15 +65,15 @@ protected:
     using reorder_type = gko::reorder::Rcm<v_type, i_type>;
     Rcm()
         : exec(gko::ReferenceExecutor::create()),
-          ani4_mtx(gko::read<CsrMtx>(
-              std::ifstream(gko::matrices::location_ani4_mtx, std::ios::in),
+          ani1_mtx(gko::read<CsrMtx>(
+              std::ifstream(gko::matrices::location_ani1_mtx, std::ios::in),
               exec)),
           rcm_factory(reorder_type::build().on(exec)),
-          reorder_op(rcm_factory->generate(ani4_mtx))
+          reorder_op(rcm_factory->generate(ani1_mtx))
     {}
 
     std::shared_ptr<const gko::Executor> exec;
-    std::shared_ptr<CsrMtx> ani4_mtx;
+    std::shared_ptr<CsrMtx> ani1_mtx;
     std::unique_ptr<reorder_type::Factory> rcm_factory;
     std::unique_ptr<reorder_type> reorder_op;
 };
@@ -82,9 +82,9 @@ protected:
 TEST_F(Rcm, FactoryCreatesCorrectReorderOp)
 {
     auto adj_mtx = reorder_op->get_adjacency_matrix();
-
-    auto tmp = gko::matrix::SparsityCsr<v_type, i_type>::create(exec, ani4_mtx);
+    auto tmp = gko::matrix::SparsityCsr<v_type, i_type>::create(exec, ani1_mtx);
     auto comp_mtx = tmp->to_adjacency_matrix();
+
     ASSERT_NE(reorder_op->get_adjacency_matrix(), nullptr);
     GKO_ASSERT_MTX_NEAR(adj_mtx.get(), comp_mtx.get(), 0);
 }

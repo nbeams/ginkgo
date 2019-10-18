@@ -39,7 +39,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ginkgo/core/base/array.hpp>
 #include <ginkgo/core/base/exception_helpers.hpp>
 #include <ginkgo/core/base/executor.hpp>
-#include <ginkgo/core/base/metis_types.hpp>
 #include <ginkgo/core/base/polymorphic_object.hpp>
 #include <ginkgo/core/base/types.hpp>
 #include <ginkgo/core/base/utils.hpp>
@@ -51,6 +50,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "core/matrix/csr_kernels.hpp"
 #include "core/reorder/rcm_kernels.hpp"
 
+#include <iostream>
 
 namespace gko {
 namespace reorder {
@@ -58,6 +58,7 @@ namespace rcm {
 
 
 GKO_REGISTER_OPERATION(get_permutation, rcm::get_permutation);
+GKO_REGISTER_OPERATION(get_degree_of_nodes, rcm::get_degree_of_nodes);
 
 
 }  // namespace rcm
@@ -69,9 +70,14 @@ void Rcm<ValueType, IndexType>::generate() const
     IndexType num_rows = adjacency_matrix_->get_size()[0];
     const auto exec = this->get_executor();
 
+    std::cout << " Here " << __LINE__ << std::endl;
+    exec->run(rcm::make_get_degree_of_nodes(adjacency_matrix_, node_degrees_));
+
+    std::cout << " Here " << __LINE__ << std::endl;
     exec->run(rcm::make_get_permutation(num_rows, adjacency_matrix_,
-                                        vertex_weights_, permutation_,
+                                        node_degrees_, permutation_,
                                         inv_permutation_));
+    std::cout << " Here " << __LINE__ << std::endl;
 }
 
 

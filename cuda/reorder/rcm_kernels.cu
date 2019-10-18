@@ -59,10 +59,20 @@ namespace rcm {
 
 
 template <typename ValueType, typename IndexType>
+void get_degree_of_nodes(
+    std::shared_ptr<const CudaExecutor> exec,
+    std::shared_ptr<matrix::SparsityCsr<ValueType, IndexType>> adjacency_matrix,
+    std::shared_ptr<gko::Array<IndexType>> node_degrees) GKO_NOT_IMPLEMENTED;
+
+GKO_INSTANTIATE_FOR_EACH_VALUE_AND_INDEX_TYPE(
+    GKO_DECLARE_RCM_GET_DEGREE_OF_NODES_KERNEL);
+
+
+template <typename ValueType, typename IndexType>
 void get_permutation(
     std::shared_ptr<const CudaExecutor> exec, size_type num_vertices,
     std::shared_ptr<matrix::SparsityCsr<ValueType, IndexType>> adjacency_matrix,
-    std::shared_ptr<Array<IndexType>> vertex_weights,
+    std::shared_ptr<Array<IndexType>> node_degrees,
     std::shared_ptr<matrix::Permutation<IndexType>> permutation_mat,
     std::shared_ptr<matrix::Permutation<IndexType>> inv_permutation_mat)
     GKO_NOT_IMPLEMENTED;
