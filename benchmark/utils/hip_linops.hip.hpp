@@ -30,8 +30,8 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ******************************<GINKGO LICENSE>*******************************/
 
-#ifndef GKO_BENCHMARK_SPMV_HIP_LINOPS_HPP_
-#define GKO_BENCHMARK_SPMV_HIP_LINOPS_HPP_
+#ifndef GKO_BENCHMARK_SPMV_HIP_LINOPS_HIP_HPP_
+#define GKO_BENCHMARK_SPMV_HIP_LINOPS_HIP_HPP_
 
 
 #include <ginkgo/ginkgo.hpp>
@@ -83,11 +83,11 @@ protected:
     void initialize_descr()
     {
         const auto id = this->gpu_exec_->get_device_id();
-        gko::hip_device_guard g{id};
+        gko::kernels::hip::device_guard g{id};
         this->descr_ = handle_manager<hipsparseMatDescr>(
             gko::kernels::hip::hipsparse::create_mat_descr(),
             [id](hipsparseMatDescr *descr) {
-                gko::hip_device_guard g{id};
+                gko::kernels::hip::device_guard g{id};
                 gko::kernels::hip::hipsparse::destroy(descr);
             });
     }
@@ -133,7 +133,7 @@ protected:
         auto dx = dense_x->get_values();
 
         const auto id = this->get_gpu_exec()->get_device_id();
-        gko::hip_device_guard g{id};
+        gko::kernels::hip::device_guard g{id};
         gko::kernels::hip::hipsparse::spmv(
             this->get_gpu_exec()->get_hipsparse_handle(), trans_,
             this->get_size()[0], this->get_size()[1],
@@ -193,7 +193,7 @@ protected:
         auto dx = dense_x->get_values();
 
         const auto id = this->get_gpu_exec()->get_device_id();
-        gko::hip_device_guard g{id};
+        gko::kernels::hip::device_guard g{id};
         gko::kernels::hip::hipsparse::spmm(
             this->get_gpu_exec()->get_hipsparse_handle(), trans_,
             this->get_size()[0], dense_b->get_size()[1], this->get_size()[1],
@@ -246,7 +246,7 @@ public:
         this->set_size(gko::dim<2>{t_csr->get_size()});
 
         const auto id = this->get_gpu_exec()->get_device_id();
-        gko::hip_device_guard g{id};
+        gko::kernels::hip::device_guard g{id};
         gko::kernels::hip::hipsparse::csr2hyb(
             this->get_gpu_exec()->get_hipsparse_handle(), this->get_size()[0],
             this->get_size()[1], this->get_descr(), t_csr->get_const_values(),
@@ -257,7 +257,7 @@ public:
     ~HipspHybrid() override
     {
         const auto id = this->get_gpu_exec()->get_device_id();
-        gko::hip_device_guard g{id};
+        gko::kernels::hip::device_guard g{id};
         try {
             GKO_ASSERT_NO_HIPSPARSE_ERRORS(hipsparseDestroyHybMat(hyb_));
         } catch (const std::exception &e) {
@@ -275,7 +275,7 @@ protected:
         auto dx = dense_x->get_values();
 
         const auto id = this->get_gpu_exec()->get_device_id();
-        gko::hip_device_guard g{id};
+        gko::kernels::hip::device_guard g{id};
         gko::kernels::hip::hipsparse::spmv(
             this->get_gpu_exec()->get_hipsparse_handle(), trans_,
             &scalars.get_const_data()[0], this->get_descr(), hyb_, db,
@@ -288,7 +288,7 @@ protected:
           trans_(HIPSPARSE_OPERATION_NON_TRANSPOSE)
     {
         const auto id = this->get_gpu_exec()->get_device_id();
-        gko::hip_device_guard g{id};
+        gko::kernels::hip::device_guard g{id};
         GKO_ASSERT_NO_HIPSPARSE_ERRORS(hipsparseCreateHybMat(&hyb_));
     }
 
@@ -315,4 +315,4 @@ using hipsp_ell =
     detail::HipspHybrid<double, gko::int32, HIPSPARSE_HYB_PARTITION_MAX, 0>;
 using hipsp_hybrid = detail::HipspHybrid<>;
 
-#endif  // GKO_BENCHMARK_SPMV_HIP_LINOPS_HPP_
+#endif  // GKO_BENCHMARK_SPMV_HIP_LINOPS_HIP_HPP_

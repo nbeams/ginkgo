@@ -30,6 +30,12 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ******************************<GINKGO LICENSE>*******************************/
 
+#ifndef GKO_HIP_BASE_DEVICE_GUARD_HIP_HPP_
+#define GKO_HIP_BASE_DEVICE_GUARD_HIP_HPP_
+
+
+#include <exception>
+
 
 #include <hip/hip_runtime.h>
 
@@ -38,6 +44,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 namespace gko {
+namespace kernels {
+namespace hip {
 
 
 /**
@@ -48,23 +56,23 @@ namespace gko {
  * passed in. After the scope has been exited, the destructor sets the device_id
  * back to the one before entering the scope.
  */
-class hip_device_guard {
+class device_guard {
 public:
-    hip_device_guard(int device_id)
+    device_guard(int device_id)
     {
         GKO_ASSERT_NO_HIP_ERRORS(hipGetDevice(&original_device_id));
         GKO_ASSERT_NO_HIP_ERRORS(hipSetDevice(device_id));
     }
 
-    hip_device_guard(hip_device_guard &other) = delete;
+    device_guard(device_guard &other) = delete;
 
-    hip_device_guard &operator=(const hip_device_guard &other) = delete;
+    device_guard &operator=(const device_guard &other) = delete;
 
-    hip_device_guard(hip_device_guard &&other) = delete;
+    device_guard(device_guard &&other) = delete;
 
-    hip_device_guard const &operator=(hip_device_guard &&other) = delete;
+    device_guard const &operator=(device_guard &&other) = delete;
 
-    ~hip_device_guard() noexcept(false)
+    ~device_guard() noexcept(false)
     {
         /* Ignore the error during stack unwinding for this call */
         if (std::uncaught_exception()) {
@@ -79,4 +87,9 @@ private:
 };
 
 
+}  // namespace hip
+}  // namespace kernels
 }  // namespace gko
+
+
+#endif  // GKO_HIP_BASE_DEVICE_GUARD_HIP_HPP_
