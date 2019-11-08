@@ -20,3 +20,4 @@ add_subdirectory(simple-solver-logging)
 add_subdirectory(three-pt-stencil-solver)
 add_subdirectory(twentyseven-pt-stencil-solver)
 
+add_subdirectory(luca_test_solver)

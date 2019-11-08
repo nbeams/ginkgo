@@ -425,6 +425,12 @@ public:
         return values_.get_num_elems();
     }
 
+    void set_strategy(std::shared_ptr<strategy_type> strategy)
+    {
+        strategy_ = strategy;
+        this->make_srow();
+    }
+
     /** Returns the strategy
      *
      * @return the strategy
