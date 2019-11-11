@@ -360,17 +360,17 @@ double compute_max_relative_norm(vec<ValueType> *result,
     answer->compute_norm2(lend(answer_norm));
     auto neg_one = gko::initialize<vec<ValueType>>({-1.0}, exec);
     result->add_scaled(lend(neg_one), lend(answer));
-    auto absoulte_norm =
+    auto absolute_norm =
         vec<ValueType>::create(exec, gko::dim<2>{1, answer->get_size()[1]});
-    result->compute_norm2(lend(absoulte_norm));
+    result->compute_norm2(lend(absolute_norm));
     auto host_answer_norm =
         clone(answer_norm->get_executor()->get_master(), answer_norm);
-    auto host_absoulte_norm =
-        clone(absoulte_norm->get_executor()->get_master(), absoulte_norm);
+    auto host_absolute_norm =
+        clone(absolute_norm->get_executor()->get_master(), absolute_norm);
     double max_relative_norm = 0;
     for (gko::size_type i = 0; i < host_answer_norm->get_size()[1]; i++) {
         max_relative_norm =
-            std::max(host_absoulte_norm->at(0, i) / host_answer_norm->at(0, i),
+            std::max(host_absolute_norm->at(0, i) / host_answer_norm->at(0, i),
                      max_relative_norm);
     }
     return max_relative_norm;
