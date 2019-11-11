@@ -35,16 +35,90 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <string>
+#include <vector>
+
+
+using dense = gko::matrix::Dense<>;
+using csr = gko::matrix::Csr<>;
+using coo = gko::matrix::Coo<>;
+using bj = gko::preconditioner::Jacobi<>;
+
+
+template <typename Solver, typename ExecType>
+std::unique_ptr<typename Solver::Factory> generate_solver_factory(
+    ExecType exec, bool with_preconditioner)
+{
+    if (with_preconditioner) {
+        return Solver::build()
+            .with_criteria(
+                gko::stop::Iteration::build().with_max_iters(1000u).on(exec),
+                gko::stop::ResidualNormReduction<>::build()
+                    .with_reduction_factor(1e-15)
+                    .on(exec))
+            .with_preconditioner(bj::build().with_max_block_size(32u).on(exec))
+            .on(exec);
+    } else {
+        return Solver::build()
+            .with_criteria(
+                gko::stop::Iteration::build().with_max_iters(1000u).on(exec),
+                gko::stop::ResidualNormReduction<>::build()
+                    .with_reduction_factor(1e-15)
+                    .on(exec))
+            .on(exec);
+    }
+}
+
+
+template <typename Solver, typename MatrixFormat, typename ExecType>
+void create_and_run_solver(ExecType exec, bool with_preconditioner,
+                           const std::unique_ptr<dense> &neg_one,
+                           const std::shared_ptr<MatrixFormat> &Mi,
+                           const std::unique_ptr<dense> &b,
+                           std::unique_ptr<dense> &delta_vm)
+{
+    auto solver_gen =
+        generate_solver_factory<Solver>(exec, with_preconditioner);
+    auto solver = solver_gen->generate(Mi);
+
+    std::shared_ptr<gko::log::Stream<>> stream_logger =
+        gko::log::Stream<>::create(
+            exec, gko::log::Logger::iteration_complete_mask, std::cout);
+    solver->add_logger(stream_logger);
+
+    std::cout << "With";
+    if (!with_preconditioner) {
+        std::cout << "out";
+    }
+    std::cout << " preconditioner:\n";
+
+    auto start_solver = std::chrono::steady_clock::now();
+    solver->apply(lend(b), lend(delta_vm));
+    auto end_solver = std::chrono::steady_clock::now();
+
+    auto dur_solver = std::chrono::duration_cast<std::chrono::microseconds>(
+                          end_solver - start_solver)
+                          .count();
+
+    std::cout << "Time for solving [us]: " << dur_solver << std::endl;
+
+    // std::cout << "Solution (x): \n";
+    // write(std::cout, lend(x));
+
+    auto diff_vector = dense::create_with_config_of(lend(delta_vm));
+    auto res = dense::create(exec, gko::dim<2>{1, delta_vm->get_size()[1]});
+    Mi->apply(lend(delta_vm), lend(diff_vector));
+    diff_vector->add_scaled(lend(neg_one), lend(b));
+    diff_vector->compute_norm2(lend(res));
+
+    std::cout << "Residual norm sqrt(r^T r): \n";
+    write(std::cout, lend(res));
+}
 
 
 int main(int argc, char *argv[])
 {
-    using dense = gko::matrix::Dense<>;
-    using csr = gko::matrix::Csr<>;
-    using coo = gko::matrix::Coo<>;
-    using bj = gko::preconditioner::Jacobi<>;
-
     auto strategy = std::make_shared<csr::automatical>(32);
     // auto strategy = std::make_shared<csr::classical>();
 
@@ -67,74 +141,51 @@ int main(int argc, char *argv[])
         std::exit(-1);
     }
 
-    std::shared_ptr<gko::log::Stream<>> stream_logger =
-        gko::log::Stream<>::create(
-            exec, gko::log::Logger::iteration_complete_mask, std::cout);
-
     std::string location_matrices{
-        "/home/thomas/Downloads/Matrices_Luca_Azzolin/Reentry"};
-    std::string location_Ki = location_matrices + "/Ki_reentries.mtx";
-    std::string location_Mi = location_matrices + "/Mi_reentries.mtx";
-    std::string location_vm = location_matrices + "/vm_reentry.mtx";
-    auto Ki = gko::read<csr>(std::ifstream(location_Ki), exec);
-    // auto Ki = csr::create(exec, strategy);
-    // Ki->copy_from(lend(Ki_temp));
-    auto Mi = gko::share(gko::read<csr>(std::ifstream(location_Mi), exec));
-    // auto Mi = share(csr::create(exec, strategy));
-    // Mi->copy_from(lend(Mi_temp));
-    auto vm = gko::read<dense>(std::ifstream(location_vm), exec);
-    auto delta_vm =
-        dense::create(exec, gko::dim<2>{Mi->get_size()[0], vm->get_size()[1]});
-    auto b = dense::create(
-        exec, gko::dim<2>(Ki->get_size()[0], delta_vm->get_size()[1]));
+        "/home/thoasm/projects/matrices/luca_matrices/Matrices_Luca_Azzolin/"};
+    std::vector<std::string> location_Ki = {
+        location_matrices + "Reentry/Ki_reentries.mtx",
+        location_matrices + "Repolarization_depolarization/Ki_one_beat.mtx",
+        location_matrices + "Silence/Ki_repolarization.mtx"};
+    std::vector<std::string> location_Mi = {
+        location_matrices + "Reentry/Mi_reentries.mtx",
+        location_matrices + "Repolarization_depolarization/Mi_one_beat.mtx",
+        location_matrices + "Silence/Mi_repolarization.mtx"};
+    std::vector<std::string> location_vm = {
+        location_matrices + "Reentry/vm_reentry.mtx",
+        location_matrices + "Repolarization_depolarization/act_one_beat.mtx",
+        // location_matrices + "Repolarization_depolarization/rep_one_beat.mtx",
+        location_matrices + "Silence/Ki_repolarization.mtx"};
 
     auto one = gko::initialize<dense>({1.0}, exec);
     auto neg_one = gko::initialize<dense>({-1.0}, exec);
     auto zero = gko::initialize<dense>({0.0}, exec);
 
-    // std::cout << "1. Works" << std::endl;
-    Ki->set_strategy(strategy);
-    Mi->set_strategy(strategy);
+    for (std::size_t i = 0; i < location_Ki.size(); ++i) {
+        std::cout << "\nLoading Matrices from: "
+                  << location_Ki[i].substr(0, location_Ki[i].find_last_of('/'))
+                  << "\n\n";
+        auto Ki = gko::read<csr>(std::ifstream(location_Ki[i]), exec);
+        auto Mi =
+            gko::share(gko::read<csr>(std::ifstream(location_Mi[i]), exec));
+        auto vm = gko::read<dense>(std::ifstream(location_vm[i]), exec);
+        auto delta_vm_np = dense::create(
+            exec, gko::dim<2>{Mi->get_size()[0], vm->get_size()[1]});
+        auto delta_vm_p = dense::create(
+            exec, gko::dim<2>{Mi->get_size()[0], vm->get_size()[1]});
+        auto b = dense::create(
+            exec, gko::dim<2>(Ki->get_size()[0], delta_vm_np->get_size()[1]));
 
-    Ki->apply(lend(vm), lend(b));
-    // std::cout << "2. Works" << std::endl;
-    b->scale(lend(neg_one));
+        Ki->set_strategy(strategy);
+        Mi->set_strategy(strategy);
 
+        Ki->apply(lend(vm), lend(b));
+        b->scale(lend(neg_one));
 
-    auto solver_gen =
-        gko::solver::Cg<>::build()
-            .with_criteria(
-                gko::stop::Iteration::build().with_max_iters(1000u).on(exec),
-                gko::stop::ResidualNormReduction<>::build()
-                    .with_reduction_factor(1e-15)
-                    .on(exec))
-            .with_preconditioner(bj::build().with_max_block_size(32u).on(exec))
-            .on(exec);
-    auto solver = solver_gen->generate(Mi);
-    // solver->add_logger(stream_logger);
-
-    // std::cout << "3. Works" << std::endl;
-    auto start_solver = std::chrono::steady_clock::now();
-    solver->apply(lend(b), lend(delta_vm));
-    auto end_solver = std::chrono::steady_clock::now();
-    // std::cout << "4. Works" << std::endl;
-
-    auto dur_solver = std::chrono::duration_cast<std::chrono::microseconds>(
-                          end_solver - start_solver)
-                          .count();
-
-    std::cout << "Time for solving [us]: " << dur_solver << std::endl;
-
-    // std::cout << "Solution (x): \n";
-    // write(std::cout, lend(x));
-
-    auto diff_vector = dense::create_with_config_of(lend(delta_vm));
-    auto res = dense::create(exec, gko::dim<2>{1, delta_vm->get_size()[1]});
-    Mi->apply(lend(delta_vm), lend(diff_vector));
-    diff_vector->add_scaled(lend(neg_one), lend(b));
-    diff_vector->compute_norm2(lend(res));
-
-    std::cout << "Residual norm sqrt(r^T r): \n";
-    write(std::cout, lend(res));
+        create_and_run_solver<gko::solver::Cg<>>(exec, false, neg_one, Mi, b,
+                                                 delta_vm);
+        create_and_run_solver<gko::solver::Cg<>>(exec, true, neg_one, Mi, b,
+                                                 delta_vm);
+    }
     //*/
 }
