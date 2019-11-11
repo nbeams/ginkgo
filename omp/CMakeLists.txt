@@ -3,6 +3,7 @@ find_package(OpenMP REQUIRED)
 add_library(ginkgo_omp $<TARGET_OBJECTS:ginkgo_omp_device> "")
 target_sources(ginkgo_omp
     PRIVATE
+        base/executor.cpp
         base/version.cpp
         factorization/par_ilu_kernels.cpp
         matrix/coo_kernels.cpp
@@ -31,6 +32,7 @@ target_compile_options(ginkgo_omp PRIVATE "${GINKGO_COMPILER_FLAGS}")
 
 # Need to link against ginkgo_cuda for the `raw_copy_to(CudaExecutor ...)` method
 target_link_libraries(ginkgo_omp PUBLIC ginkgo_cuda)
+
 
 ginkgo_default_includes(ginkgo_omp)
 ginkgo_install_library(ginkgo_omp omp)

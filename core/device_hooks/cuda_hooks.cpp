@@ -62,6 +62,8 @@ void OmpExecutor::raw_copy_to(const CudaExecutor *, size_type num_bytes,
     GKO_NOT_COMPILED(cuda);
 
 
+// void machine_config::topology::load_gpus() {}
+
 void CudaExecutor::raw_free(void *ptr) const noexcept
 {
     // Free must never fail, as it can be called in destructors.

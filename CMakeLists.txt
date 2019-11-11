@@ -19,6 +19,7 @@ option(GINKGO_SKIP_DEPENDENCY_UPDATE
 option(GINKGO_EXPORT_BUILD_DIR
     "Make Ginkgo export its build directory to the CMake package registry."
     OFF)
+option(GINKGO_WITH_HWLOC "Add support for the Hardware Locality module from Open-MPI" OFF)
 option(GINKGO_WITH_CLANG_TIDY "Make Ginkgo call `clang-tidy` to find programming issues." OFF)
 option(GINKGO_WITH_IWYU "Make Ginkgo call `iwyu` (Include What You Use) to find include issues." OFF)
 set(GINKGO_VERBOSE_LEVEL "1" CACHE STRING
@@ -109,11 +110,12 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 include(CheckIncludeFileCXX)
 check_include_file_cxx(cxxabi.h GKO_HAVE_CXXABI_H)
 
+include(cmake/package_helpers.cmake)
 # Automatically find PAPI and search for the required 'sde' component
 set(GINKGO_HAVE_PAPI_SDE 0)
 find_package(PAPI OPTIONAL_COMPONENTS sde)
 if (PAPI_sde_FOUND)
-    set(GINKGO_HAVE_PAPI_SDE 1)
+  set(GINKGO_HAVE_PAPI_SDE 1)
 endif()
 
 set(GINKGO_HIP_PLATFORM_NVCC 0)
@@ -141,14 +143,25 @@ if (GINKGO_BUILD_HIP)
     message(STATUS "HIP platform set to ${GINKGO_HIP_PLATFORM}")
 
     if (GINKGO_HIP_PLATFORM STREQUAL "hcc")
-        set(GINKGO_HIP_PLATFORM_HCC 1)
+      set(GINKGO_HIP_PLATFORM_HCC 1)
     elseif (GINKGO_HIP_PLATFORM STREQUAL "nvcc")
-        set(GINKGO_HIP_PLATFORM_NVCC 1)
+      set(GINKGO_HIP_PLATFORM_NVCC 1)
     endif()
 endif()
 
+# Automatically find HWLOC
+# set(HWLOC_XMLFILE "${CMAKE_SOURCE_DIR}/topo.xml")
+set(GINKGO_HAVE_HWLOC 0)
+if(GINKGO_WITH_HWLOC)
+  find_package(HWLOC)
+  set(GKO_HWLOC_XMLFILE "${HWLOC_XMLFILE}")
+  if(HWLOC_FOUND)
+    set(GINKGO_HAVE_HWLOC 1)
+  endif()
+endif()
+
 configure_file(${Ginkgo_SOURCE_DIR}/include/ginkgo/config.hpp.in
-    ${Ginkgo_BINARY_DIR}/include/ginkgo/config.hpp @ONLY)
+  ${Ginkgo_BINARY_DIR}/include/ginkgo/config.hpp @ONLY)
 
 # This is modified from https://gitlab.kitware.com/cmake/community/wikis/FAQ#dynamic-replace
 if(MSVC)
@@ -169,10 +182,10 @@ include(cmake/build_type_helpers.cmake)
 include(cmake/install_helpers.cmake)
 
 # Try to find the third party packages before using our subdirectories
-include(cmake/package_helpers.cmake)
 ginkgo_find_package(GTest "GTest::GTest;GTest::Main" FALSE 1.8.1)
 ginkgo_find_package(gflags gflags FALSE 2.2.2)
 ginkgo_find_package(RapidJSON rapidjson TRUE 1.1.0)
+
 add_subdirectory(third_party)    # Third-party tools and libraries
 
 # Ginkgo core libraries
