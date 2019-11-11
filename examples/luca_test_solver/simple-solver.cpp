@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <ginkgo/ginkgo.hpp>
 
+
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -48,23 +49,25 @@ using bj = gko::preconditioner::Jacobi<>;
 
 template <typename Solver, typename ExecType>
 std::unique_ptr<typename Solver::Factory> generate_solver_factory(
-    ExecType exec, bool with_preconditioner)
+    const ExecType &exec, bool with_preconditioner)
 {
+    constexpr unsigned int max_iter{1000};
+    constexpr double red_factor{1e-15};
     if (with_preconditioner) {
         return Solver::build()
             .with_criteria(
-                gko::stop::Iteration::build().with_max_iters(1000u).on(exec),
+                gko::stop::Iteration::build().with_max_iters(max_iter).on(exec),
                 gko::stop::ResidualNormReduction<>::build()
-                    .with_reduction_factor(1e-15)
+                    .with_reduction_factor(red_factor)
                     .on(exec))
             .with_preconditioner(bj::build().with_max_block_size(32u).on(exec))
             .on(exec);
     } else {
         return Solver::build()
             .with_criteria(
-                gko::stop::Iteration::build().with_max_iters(1000u).on(exec),
+                gko::stop::Iteration::build().with_max_iters(max_iter).on(exec),
                 gko::stop::ResidualNormReduction<>::build()
-                    .with_reduction_factor(1e-15)
+                    .with_reduction_factor(red_factor)
                     .on(exec))
             .on(exec);
     }
@@ -72,7 +75,7 @@ std::unique_ptr<typename Solver::Factory> generate_solver_factory(
 
 
 template <typename Solver, typename MatrixFormat, typename ExecType>
-void create_and_run_solver(ExecType exec, bool with_preconditioner,
+void create_and_run_solver(const ExecType &exec, bool with_preconditioner,
                            const std::unique_ptr<dense> &neg_one,
                            const std::shared_ptr<MatrixFormat> &Mi,
                            const std::unique_ptr<dense> &b,
@@ -112,15 +115,23 @@ void create_and_run_solver(ExecType exec, bool with_preconditioner,
     diff_vector->add_scaled(lend(neg_one), lend(b));
     diff_vector->compute_norm2(lend(res));
 
+    auto ref_exec = gko::ReferenceExecutor::create();
+    auto res_ref = dense::create(ref_exec);
+    res_ref->copy_from(lend(res));
+
+
     std::cout << "Residual norm sqrt(r^T r): \n";
-    write(std::cout, lend(res));
+    write(std::cout, lend(res_ref));
 }
 
 
 int main(int argc, char *argv[])
 {
-    auto strategy = std::make_shared<csr::automatical>(32);
-    // auto strategy = std::make_shared<csr::classical>();
+    //*
+    auto strategy = std::make_shared<csr::automatical>();
+    /*/
+    auto strategy = std::make_shared<csr::load_balance>();
+    //*/
 
     // Print the ginkgo version information.
     std::cout << gko::version_info::get() << std::endl;
@@ -155,7 +166,7 @@ int main(int argc, char *argv[])
         location_matrices + "Reentry/vm_reentry.mtx",
         location_matrices + "Repolarization_depolarization/act_one_beat.mtx",
         // location_matrices + "Repolarization_depolarization/rep_one_beat.mtx",
-        location_matrices + "Silence/Ki_repolarization.mtx"};
+        location_matrices + "Silence/vm_repolarization.mtx"};
 
     auto one = gko::initialize<dense>({1.0}, exec);
     auto neg_one = gko::initialize<dense>({-1.0}, exec);
@@ -164,10 +175,11 @@ int main(int argc, char *argv[])
     for (std::size_t i = 0; i < location_Ki.size(); ++i) {
         std::cout << "\nLoading Matrices from: "
                   << location_Ki[i].substr(0, location_Ki[i].find_last_of('/'))
-                  << "\n\n";
-        auto Ki = gko::read<csr>(std::ifstream(location_Ki[i]), exec);
-        auto Mi =
-            gko::share(gko::read<csr>(std::ifstream(location_Mi[i]), exec));
+                  << "\n\n"
+                  << std::flush;
+        auto Ki = gko::read<csr>(std::ifstream(location_Ki[i]), exec, strategy);
+        auto Mi = gko::share(
+            gko::read<csr>(std::ifstream(location_Mi[i]), exec, strategy));
         auto vm = gko::read<dense>(std::ifstream(location_vm[i]), exec);
         auto delta_vm_np = dense::create(
             exec, gko::dim<2>{Mi->get_size()[0], vm->get_size()[1]});
@@ -176,16 +188,12 @@ int main(int argc, char *argv[])
         auto b = dense::create(
             exec, gko::dim<2>(Ki->get_size()[0], delta_vm_np->get_size()[1]));
 
-        Ki->set_strategy(strategy);
-        Mi->set_strategy(strategy);
-
         Ki->apply(lend(vm), lend(b));
         b->scale(lend(neg_one));
 
-        create_and_run_solver<gko::solver::Cg<>>(exec, false, neg_one, Mi, b,
-                                                 delta_vm);
-        create_and_run_solver<gko::solver::Cg<>>(exec, true, neg_one, Mi, b,
-                                                 delta_vm);
+        using Solver = gko::solver::Cg<>;
+
+        create_and_run_solver<Solver>(exec, false, neg_one, Mi, b, delta_vm_np);
+        create_and_run_solver<Solver>(exec, true, neg_one, Mi, b, delta_vm_p);
     }
-    //*/
 }

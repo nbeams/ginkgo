@@ -428,6 +428,7 @@ public:
     void set_strategy(std::shared_ptr<strategy_type> strategy)
     {
         strategy_ = strategy;
+        srow_.resize_and_reset(strategy_->clac_size(values_.get_num_elems()));
         this->make_srow();
     }
 
